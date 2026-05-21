@@ -1,5 +1,8 @@
 import ast
 import re
+from tree_sitter import Language, Parser
+from tree_sitter_javascript import language as javascript_language
+from tree_sitter_typescript import language_typescript, language_tsx
 
 def parse_python(content: str) -> dict:
     functions = []
@@ -37,32 +40,74 @@ def parse_python(content: str) -> dict:
     }
 
 
-def parse_js_ts(content: str) -> dict:
+def parse_js_ts(content: str, ext: str) -> dict:
     functions = []
     classes = []
     imports = []
 
-    # Match: function foo() / async function foo() / const foo = () => / const foo = function()
-    func_patterns = [
-        r"(?:async\s+)?function\s+(\w+)\s*\(",
-        r"(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(",
-        r"(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(\s*\)\s*=>",
-    ]
-    for pattern in func_patterns:
-        functions.extend(re.findall(pattern, content))
+    parser = Parser()
+    # Select grammar based on file type
+    if ext in ("ts", "tsx"):
+        if ext == "tsx":
+            parser.language = Language(language_tsx())
+        else:
+            parser.language = Language(language_typescript())
+    else:
+        parser.language = Language(javascript_language())
 
-    # Match: class Foo
-    classes = re.findall(r"class\s+(\w+)", content)
+    tree = parser.parse(bytes(content, "utf8"))
 
-    # Match: import ... from '...' / import('...')
-    imports = re.findall(r"import\s+.*?from\s+['\"](.+?)['\"]", content)
+    def walk(node):
+        # Function declarations
+        if node.type in (
+            "function_declaration",
+            "method_definition",
+            "generator_function_declaration"
+        ):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                functions.append(
+                    content[name_node.start_byte:name_node.end_byte]
+                )
 
+        # Variable declarations with arrow functions
+        elif node.type == "lexical_declaration":
+            text = content[node.start_byte:node.end_byte]
+
+            if "=>" in text:
+                for child in node.children:
+                    if child.type == "variable_declarator":
+                        name_node = child.child_by_field_name("name")
+                        if name_node:
+                            functions.append(
+                                content[name_node.start_byte:name_node.end_byte]
+                            )
+
+        # Class declarations
+        elif node.type == "class_declaration":
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                classes.append(
+                    content[name_node.start_byte:name_node.end_byte]
+                )
+
+        # Import statements
+        elif node.type == "import_statement":
+            text = content[node.start_byte:node.end_byte]
+
+            match = re.search(r"['\"](.+?)['\"]", text)
+            if match:
+                imports.append(match.group(1))
+
+        for child in node.children:
+            walk(child)
+
+    walk(tree.root_node)
     return {
         "functions": list(set(functions)),
-        "classes": classes,
-        "imports": imports
+        "classes": list(set(classes)),
+        "imports": list(set(imports)),
     }
-
 
 def parse_file(file_path: str, content: str) -> dict:
     ext = file_path.rsplit(".", 1)[-1].lower()
@@ -70,7 +115,7 @@ def parse_file(file_path: str, content: str) -> dict:
     if ext == "py":
         symbols = parse_python(content)
     elif ext in ("js", "ts", "jsx", "tsx"):
-        symbols = parse_js_ts(content)
+        symbols = parse_js_ts(content, ext)
     else:
         # For .md, .json, .yaml etc — no symbols to extract
         symbols = {"functions": [], "classes": [], "imports": []}
