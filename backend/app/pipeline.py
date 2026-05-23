@@ -1,7 +1,7 @@
 from app.parser.repo_cloner import clone_repo
 from app.parser.file_scanner import scan_files
 from app.parser.ts_parser import parse_file
-from app.parser.chunker import chunk_all_files
+from app.embeddings.chunker import chunk_all_files
 from app.graph.graph_builder import build_graph, save_graph
 from app.embeddings.vector_store import store_chunks
 
