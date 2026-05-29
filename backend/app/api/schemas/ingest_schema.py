@@ -1,7 +1,8 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 class IngestRequest(BaseModel):
     github_url: str
+    force: bool = False
 
 class IngestResponse(BaseModel):
     status: str

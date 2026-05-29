@@ -1,5 +1,5 @@
 import os
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain.embeddings.base import Embeddings
 from app.embeddings.emb_generator import get_embeddings
