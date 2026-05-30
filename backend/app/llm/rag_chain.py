@@ -5,6 +5,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.messages import HumanMessage, AIMessage
 from app.embeddings.vector_store import load_vectorstore
 from app.config import GROQ_API_KEY
+from typing import Generator
 
 # Store chain + history per repo
 _chain_cache: dict = {}
@@ -98,3 +99,26 @@ def ask_chain(repo_name: str, question: str) -> dict:
 def clear_memory(repo_name: str):
     _chain_cache.pop(repo_name, None)
     _history_cache.pop(repo_name, None)
+
+def stream_chain(repo_name: str, question: str) -> Generator[str, None, None]:
+    print(f"stream_chain called: repo={repo_name}, question={question}")
+    chain = get_rag_chain(repo_name)
+    
+    # Get relevant docs for sources
+    vectorstore = load_vectorstore(repo_name)
+    docs = vectorstore.similarity_search(question, k=5)
+    sources = list(set([doc.metadata.get("file_path", "") for doc in docs]))
+
+    # Stream the response token by token
+    for chunk in chain.stream(question):
+        if isinstance(chunk, str):
+            yield chunk
+        elif hasattr(chunk, 'content'):
+            yield chunk.content
+
+    # Save to history after streaming
+    if repo_name not in _history_cache:
+        _history_cache[repo_name] = []
+    _history_cache[repo_name].append(HumanMessage(content=question))
+
+    yield f"\n\n__SOURCES__{','.join(sources)}"
