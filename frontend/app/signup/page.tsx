@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function SignupPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,7 +15,13 @@ export default function SignupPage() {
   const handleSignup = async () => {
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name }
+      }
+    });
     if (error) {
       setError(error.message);
     } else {
@@ -36,6 +43,16 @@ export default function SignupPage() {
         )}
 
         <div className="space-y-4">
+          <div>
+            <label className="text-gray-400 text-sm mb-1 block">Full name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="John Doe"
+              className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
           <div>
             <label className="text-gray-400 text-sm mb-1 block">Email</label>
             <input
@@ -59,7 +76,7 @@ export default function SignupPage() {
 
           <button
             onClick={handleSignup}
-            disabled={loading || !email || !password}
+            disabled={loading || !email || !password || !name}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-lg text-sm font-medium transition"
           >
             {loading ? "Creating account..." : "Create account"}

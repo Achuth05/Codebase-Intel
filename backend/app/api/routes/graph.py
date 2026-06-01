@@ -49,3 +49,17 @@ def file_description(repo_name: str, file_path: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/graph/{repo_name}/function-description")
+def function_description(repo_name: str, file_path: str, function_name: str):
+    print("REPO:", repo_name)
+    print("FILE:", file_path)
+    print("FUNCTION:", function_name)
+
+    try:
+        from app.services.graph_service import get_function_description
+        return get_function_description(repo_name, file_path, function_name)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

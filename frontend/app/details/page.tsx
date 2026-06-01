@@ -10,6 +10,7 @@ import { getGraphStats, getFileSummary, getImpact } from "@/services/api";
 import { GraphStatsData, FileSummary } from "@/types/graph";
 import { ImpactResponse } from "@/types/api";
 import api from "@/lib/axios";
+import { getFunctionDescription } from "@/services/api";
 
 export default function DetailsPage() {
   const [repoName, setRepoName] = useState("");
@@ -21,6 +22,9 @@ export default function DetailsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState<"stats" | "graph">("stats");
+  const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
+  const [functionDesc, setFunctionDesc] = useState<{ function: string; description: string } | null>(null);
+  const [loadingFuncDesc, setLoadingFuncDesc] = useState(false);
 
   const loadRepo = async () => {
     if (!repoName) return;
@@ -63,6 +67,9 @@ export default function DetailsPage() {
   const loadFileDetails = async () => {
     if (!repoName || !filePath) return;
     setLoading(true);
+    setError("");
+    setSelectedFunction(null);
+    setFunctionDesc(null);
     try {
       const [summary, impactData] = await Promise.all([
         getFileSummary(repoName, filePath),
@@ -72,8 +79,25 @@ export default function DetailsPage() {
       setImpact(impactData);
     } catch (e: any) {
       setError("File not found in graph.");
+      setFileSummary(null);
+      setImpact(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFunctionClick = async (funcName: string) => {
+    if (!filePath) return;
+    setSelectedFunction(funcName);
+    setFunctionDesc(null);
+    setLoadingFuncDesc(true);
+    try {
+      const data = await getFunctionDescription(repoName, filePath, funcName);
+      setFunctionDesc(data);
+    } catch {
+      setFunctionDesc({ function: funcName, description: "Could not load description." });
+    } finally {
+      setLoadingFuncDesc(false);
     }
   };
 
@@ -148,7 +172,7 @@ export default function DetailsPage() {
         )}
 
         {/* File details section */}
-        {graphData && (
+        {repoName && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-white">File Analysis</h2>
             <div className="flex gap-3">
@@ -171,22 +195,86 @@ export default function DetailsPage() {
             {fileSummary && (
               <div className="bg-gray-800 rounded-lg p-5 space-y-4">
                 <h3 className="text-white font-mono text-sm">{fileSummary.file}</h3>
-                {[
-                  { label: "Functions", items: fileSummary.functions, color: "text-yellow-300" },
-                  { label: "Classes", items: fileSummary.classes, color: "text-purple-300" },
-                  { label: "Imports", items: fileSummary.imports, color: "text-blue-300" },
-                ].map(({ label, items, color }) => (
-                  <div key={label}>
-                    <p className="text-gray-400 text-xs mb-2">{label} ({items.length})</p>
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((item, i) => (
-                        <span key={i} className={`text-xs font-mono bg-gray-700 px-2 py-1 rounded ${color}`}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
+                {/* Functions */}
+                <div>
+                  <p className="text-gray-400 text-xs mb-2">
+                    Functions ({fileSummary.functions.length}) — click to see description
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {fileSummary.functions.map((f: string, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => handleFunctionClick(f)}
+                        className={`text-xs font-mono px-2 py-1 rounded transition ${
+                          selectedFunction === f
+                            ? "bg-yellow-500 text-gray-900"
+                            : "bg-gray-700 hover:bg-gray-600 text-yellow-300"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
                   </div>
-                ))}
+
+                  {loadingFuncDesc && (
+                    <div className="mt-3 bg-gray-700 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-gray-400 text-xs">
+                          Loading description...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {functionDesc && !loadingFuncDesc && (
+                    <div className="mt-3 bg-yellow-900/20 border border-yellow-800 rounded-lg p-3">
+                      <p className="text-yellow-400 text-xs font-medium mb-1">
+                        ⚡ {functionDesc.function}
+                      </p>
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        {functionDesc.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Classes */}
+                <div>
+                  <p className="text-gray-400 text-xs mb-2">
+                    Classes ({fileSummary.classes.length})
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {fileSummary.classes.map((cls, i) => (
+                      <span
+                        key={i}
+                        className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-purple-300"
+                      >
+                        {cls}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Imports */}
+                <div>
+                  <p className="text-gray-400 text-xs mb-2">
+                    Imports ({fileSummary.imports.length})
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {fileSummary.imports.map((imp, i) => (
+                      <span
+                        key={i}
+                        className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-blue-300"
+                      >
+                        {imp}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 

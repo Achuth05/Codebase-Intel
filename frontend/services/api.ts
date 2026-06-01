@@ -129,3 +129,19 @@ export const getFileDescription = async (repo_name: string, file_path: string) =
   });
   return res.data;
 };
+
+export const getIngestProgress = async (repo_name: string) => {
+  const res = await api.get(`/api/ingest/progress/${repo_name}`);
+  return res.data;
+};
+
+export const getFunctionDescription = async (
+  repo_name: string,
+  file_path: string,
+  function_name: string
+) => {
+  const res = await api.get(`/api/graph/${repo_name}/function-description`, {
+    params: { file_path, function_name }
+  });
+  return res.data;
+};
