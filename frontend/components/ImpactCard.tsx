@@ -10,18 +10,20 @@ export default function ImpactCard({ data }: { data: ImpactResponse }) {
         </span>
       </div>
 
-      <div>
-        <p className="text-gray-400 text-xs mb-2">Symbols defined ({data.symbols_defined.length})</p>
-        <div className="flex flex-wrap gap-2">
-          {data.symbols_defined.slice(0, 10).map((s, i) => (
-            <span key={i} className="text-xs bg-gray-700 text-purple-300 px-2 py-1 rounded font-mono">
-              {s.type === "class" ? "🔷" : "⚡"} {s.name}
-            </span>
-          ))}
+      {data.symbols_defined && data.symbols_defined.length > 0 && (
+        <div>
+          <p className="text-gray-400 text-xs mb-2">Symbols defined ({data.symbols_defined.length})</p>
+          <div className="flex flex-wrap gap-2">
+            {data.symbols_defined.slice(0, 10).map((s, i) => (
+              <span key={i} className="text-xs bg-gray-700 text-purple-300 px-2 py-1 rounded font-mono">
+                {s.type === "class" ? "🔷" : "⚡"} {s.name}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {data.direct_dependents.length > 0 && (
+      {data.direct_dependents && data.direct_dependents.length > 0 && (
         <div>
           <p className="text-gray-400 text-xs mb-2">Direct dependents ({data.direct_dependents.length})</p>
           <div className="space-y-1">
@@ -32,7 +34,7 @@ export default function ImpactCard({ data }: { data: ImpactResponse }) {
         </div>
       )}
 
-      {data.indirect_dependents.length > 0 && (
+      {data.indirect_dependents && data.indirect_dependents.length > 0 && (
         <div>
           <p className="text-gray-400 text-xs mb-2">Indirect dependents ({data.indirect_dependents.length})</p>
           <div className="space-y-1">

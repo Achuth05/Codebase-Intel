@@ -4,6 +4,7 @@ import RepoInput from "@/components/RepoInput";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { IngestResponse } from "@/types/api";
 import api from "@/lib/axios";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function IngestPage() {
   const [loading, setLoading] = useState(false);
@@ -26,6 +27,7 @@ export default function IngestPage() {
   };
 
   return (
+    <AuthGuard>
     <div className="max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold text-white mb-2">Ingest Repository</h1>
       <p className="text-gray-400 mb-8">
@@ -92,5 +94,6 @@ export default function IngestPage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }

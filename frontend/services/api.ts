@@ -117,6 +117,15 @@ export const getAllClasses = async (repo_name: string) => {
 };
 
 export const getFilesImporting = async (repo_name: string, module: string) => {
-  const res = await api.get(`/api/graph/${repo_name}/imports/${module}`);
+  const res = await api.get(`/api/graph/${repo_name}/imports`, {
+    params: { module_name: module }
+  });
+  return res.data;
+};
+
+export const getFileDescription = async (repo_name: string, file_path: string) => {
+  const res = await api.get(`/api/graph/${repo_name}/file-description`, {
+    params: { file_path }
+  });
   return res.data;
 };

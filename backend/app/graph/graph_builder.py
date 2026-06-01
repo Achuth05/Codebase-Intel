@@ -4,9 +4,37 @@ import networkx as nx
 from app.graph.models import NodeType, EdgeType, GraphMeta
 from app.parser.symbol_extractor import extract_symbols
 
+def resolve_import_to_file(import_str: str, repo_path: str) -> str:
+    """
+    Try to resolve a Python import string to an actual file path.
+    e.g. 'flask.helpers' -> 'src/flask/helpers.py'
+    """
+    import os
+    parts = import_str.split(".")
+    
+    # Try different path combinations
+    candidates = []
+    for i in range(len(parts), 0, -1):
+        # e.g. flask/helpers.py, flask/helpers/__init__.py
+        rel_path = os.path.join(*parts[:i]) + ".py"
+        candidates.append(rel_path.replace("\\", "/"))
+        init_path = os.path.join(*parts[:i], "__init__.py")
+        candidates.append(init_path.replace("\\", "/"))
+
+    for candidate in candidates:
+        full = os.path.join(repo_path, candidate)
+        if os.path.exists(full):
+            return candidate
+        # Also check inside src/ folder
+        full_src = os.path.join(repo_path, "src", candidate)
+        if os.path.exists(full_src):
+            return os.path.join("src", candidate).replace("\\", "/")
+
+    return ""
+
 def build_graph(parsed_files: list[dict], repo_path: str) -> nx.DiGraph:
     G = nx.DiGraph()
-
+    file_path_set = {f["file_path"] for f in parsed_files}
     for parsed in parsed_files:
         symbols = extract_symbols(parsed)
         file_path = symbols["file_path"]
@@ -31,13 +59,19 @@ def build_graph(parsed_files: list[dict], repo_path: str) -> nx.DiGraph:
             G.add_edge(file_path, cls_id, relation=EdgeType.CONTAINS)
 
         # Add import nodes + edge: file IMPORTS module
+        # Add import nodes + edge: file IMPORTS module/file
         for imp in symbols["imports"]:
-            # Use just the top-level module name (e.g. "fastapi" from "fastapi.routing")
-            module = imp.split(".")[0]
-            if not G.has_node(module):
-                G.add_node(module, type=NodeType.MODULE)
-            G.add_edge(file_path, module, relation=EdgeType.IMPORTS)
-
+            # Try to resolve import to actual file in repo
+            resolved = resolve_import_to_file(imp, repo_path)
+            if resolved and resolved in file_path_set:
+                # Internal import — link to actual file
+                G.add_edge(file_path, resolved, relation=EdgeType.IMPORTS)
+            else:
+                # External import — use top-level module name
+                module = imp.split(".")[0]
+                if not G.has_node(module):
+                    G.add_node(module, type=NodeType.MODULE)
+                G.add_edge(file_path, module, relation=EdgeType.IMPORTS)
     # Store graph-level metadata
     G.graph[GraphMeta.REPO_PATH] = repo_path
     G.graph[GraphMeta.TOTAL_NODES] = G.number_of_nodes()

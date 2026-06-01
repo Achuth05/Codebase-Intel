@@ -4,6 +4,7 @@ import MessageBubble from "@/components/MessageBubble";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { askQuestionStream, resetMemory } from "@/services/api";
 import { Message } from "@/types/api";
+import AuthGuard from "@/components/AuthGuard";
 
 function generateFollowUps(answer: string): string[] {
   const followUps: string[] = [];
@@ -119,6 +120,7 @@ export default function ChatPage() {
   };
 
   return (
+    <AuthGuard>
     <div className="max-w-4xl mx-auto flex flex-col h-[85vh]">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Chat</h1>
@@ -202,5 +204,6 @@ export default function ChatPage() {
         </button>
       </div>
     </div>
+    </AuthGuard>
   );
 }

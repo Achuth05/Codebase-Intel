@@ -12,11 +12,9 @@ import {
   NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { getGraphStats, getFileSummary, getFilesImporting } from "@/services/api";
-import { getAllFunctions, getAllClasses } from "@/services/api";
+import { getFileDescription } from "@/services/api";
 import NodeDetailPanel from "./NodeDetailPanel";
 import GraphControls from "./GraphControls";
-import { FileSummary } from "@/types/graph";
 
 const LANG_COLORS: Record<string, string> = {
   py: "#3b82f6",
@@ -42,11 +40,11 @@ interface RepoGraphProps {
 export default function RepoGraph({ repoName, graphData }: RepoGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [selectedFile, setSelectedFile] = useState<FileSummary | null>(null);
+  const [selectedFile, setSelectedFile] = useState<any | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadingNode, setLoadingNode] = useState(false);
 
-  // Build React Flow nodes and edges from graph data
   useEffect(() => {
     if (!graphData) return;
 
@@ -61,7 +59,6 @@ export default function RepoGraph({ repoName, graphData }: RepoGraphProps) {
 
     const filteredIds = new Set(filtered.map((n) => n.id));
 
-    // Layout nodes in a grid
     const flowNodes: Node[] = filtered.map((n, i) => ({
       id: n.id,
       position: {
@@ -100,11 +97,24 @@ export default function RepoGraph({ repoName, graphData }: RepoGraphProps) {
 
   const onNodeClick: NodeMouseHandler = useCallback(
     async (_, node) => {
+      setLoadingNode(true);
       try {
-        const data = await getFileSummary(repoName, node.id);
+        const data = await getFileDescription(repoName, node.id);
         setSelectedFile(data);
       } catch {
-        setSelectedFile({ file: node.id, functions: [], classes: [], imports: [] });
+        setSelectedFile({
+          file: node.id,
+          description: "Could not load description.",
+          functions: [],
+          classes: [],
+          imports: [],
+          dependents: [],
+          dependent_count: 0,
+          total_symbols: 0,
+          language: ""
+        });
+      } finally {
+        setLoadingNode(false);
       }
     },
     [repoName]
@@ -138,10 +148,18 @@ export default function RepoGraph({ repoName, graphData }: RepoGraphProps) {
         />
       </ReactFlow>
 
-      <NodeDetailPanel
-        data={selectedFile}
-        onClose={() => setSelectedFile(null)}
-      />
+      {loadingNode && (
+        <div className="absolute top-0 right-0 w-96 h-full bg-gray-900 border-l border-gray-700 flex items-center justify-center z-10">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {!loadingNode && (
+        <NodeDetailPanel
+          data={selectedFile}
+          onClose={() => setSelectedFile(null)}
+        />
+      )}
     </div>
   );
 }

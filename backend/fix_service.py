@@ -1,4 +1,4 @@
-from app.graph.graph_builder import load_graph
+content = '''from app.graph.graph_builder import load_graph
 from app.graph.graph_queries import (
     get_files_importing,
     get_all_functions,
@@ -53,7 +53,7 @@ def get_file_description(repo_name, file_path):
         pass
 
     client = Groq(api_key=GROQ_API_KEY)
-    prompt = f"File: {file_path}\nFunctions: {', '.join(details.get('functions', []))}\nClasses: {', '.join(details.get('classes', []))}\nCode preview:\n{content}"
+    prompt = f"File: {file_path}\\nFunctions: {', '.join(details.get('functions', []))}\\nClasses: {', '.join(details.get('classes', []))}\\nCode preview:\\n{content}"
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
@@ -64,3 +64,8 @@ def get_file_description(repo_name, file_path):
         max_tokens=150
     )
     return {**details, "description": response.choices[0].message.content.strip()}
+'''
+
+with open("app/services/graph_service.py", "w") as f:
+    f.write(content)
+print("Done")

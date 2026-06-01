@@ -64,3 +64,33 @@ def get_most_imported(G: nx.DiGraph, top_n: int = 10) -> list[dict]:
 
     sorted_imports = sorted(import_counts.items(), key=lambda x: x[1], reverse=True)
     return [{"module": m, "imported_by": c} for m, c in sorted_imports[:top_n]]
+
+def get_file_details(G, file_path):
+    if file_path not in G:
+        return {'file': file_path, 'language': '', 'functions': [], 'classes': [], 'imports': [], 'dependents': [], 'dependent_count': 0, 'total_symbols': 0}
+    functions = []
+    classes = []
+    imports = []
+    dependents = []
+    for _, target, data in G.out_edges(file_path, data=True):
+        relation = data.get('relation')
+        node_data = G.nodes[target]
+        if relation == 'contains':
+            if node_data.get('type') == 'function':
+                functions.append(node_data.get('name'))
+            elif node_data.get('type') == 'class':
+                classes.append(node_data.get('name'))
+        elif relation == 'imports':
+            co_importers = [s for s, t, d in G.edges(data=True) if t == target and d.get('relation') == 'imports' and s != file_path]
+            imports.append({'module': target, 'co_importers': len(co_importers), 'co_importer_files': co_importers[:5]})
+    for source, target, data in G.edges(data=True):
+        if target == file_path and data.get('relation') == 'imports':
+            dependents.append(source)
+    return {'file': file_path, 'language': G.nodes[file_path].get('language', ''), 'functions': functions, 'classes': classes, 'imports': imports, 'dependents': dependents, 'dependent_count': len(dependents), 'total_symbols': len(functions) + len(classes)}
+
+def get_function_impact(G, file_path, function_names):
+    direct_impact = [s for s, t, d in G.edges(data=True) if t == file_path and d.get('relation') == 'imports']
+    indirect_impact = list(set([s for dep in direct_impact for s, t, d in G.edges(data=True) if t == dep and d.get('relation') == 'imports' and s not in direct_impact and s != file_path]))
+    chain = [{'file': f, 'level': 'direct', 'reason': 'imports ' + file_path.split('/')[-1]} for f in direct_impact[:10]]
+    chain += [{'file': f, 'level': 'indirect', 'reason': 'imports a file that imports the changed file'} for f in indirect_impact[:10]]
+    return {'changed_file': file_path, 'changed_functions': function_names, 'direct_impact': direct_impact, 'indirect_impact': indirect_impact, 'impact_chain': chain, 'total_affected': len(direct_impact) + len(indirect_impact)}
