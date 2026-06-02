@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import ArchitecturePanel from "@/components/ArchitecturePanel";
 import GraphStats from "@/components/GraphStats";
 import RepoGraph from "@/components/RepoGraph";
 import ImpactCard from "@/components/ImpactCard";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExportPDF from "@/components/ExportPDF";
-import { getGraphStats, getFileSummary, getImpact } from "@/services/api";
+import { getGraphStats, getFileSummary, getImpact, generateReadme } from "@/services/api";
 import { GraphStatsData, FileSummary } from "@/types/graph";
 import { ImpactResponse } from "@/types/api";
 import api from "@/lib/axios";
@@ -21,10 +22,13 @@ export default function DetailsPage() {
   const [impact, setImpact] = useState<ImpactResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [view, setView] = useState<"stats" | "graph">("stats");
+  const [view, setView] = useState<"stats" | "graph" | "docs">("stats");
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null);
   const [functionDesc, setFunctionDesc] = useState<{ function: string; description: string } | null>(null);
   const [loadingFuncDesc, setLoadingFuncDesc] = useState(false);
+  const [docsReadme, setDocsReadme] = useState<string | null>(null);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState("");
 
   const loadRepo = async () => {
     if (!repoName) return;
@@ -60,7 +64,9 @@ export default function DetailsPage() {
     } catch (e: any) {
       setError("Repo not found. Please ingest it first.");
     } finally {
-      setLoading(false);
+      setDocsReadme(null);
+      setDocsError("");
+      setView("stats");
     }
   };
 
@@ -83,6 +89,21 @@ export default function DetailsPage() {
       setImpact(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDocs = async () => {
+    if (!repoName) return;
+    if (docsReadme) return;
+    setDocsLoading(true);
+    setDocsError("");
+    try {
+      const data = await generateReadme(repoName);
+      setDocsReadme(data.readme);
+    } catch (e: any) {
+      setDocsError(e.response?.data?.detail || "Could not load documentation.");
+    } finally {
+      setDocsLoading(false);
     }
   };
 
@@ -165,9 +186,50 @@ export default function DetailsPage() {
               >
                 Interactive Graph
               </button>
+              <button
+                onClick={async () => {
+                  setView("docs");
+                  await loadDocs();
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  view === "docs" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
+                }`}
+              >
+                Documentation
+              </button>
             </div>
             {view === "stats" && stats && <GraphStats data={stats} />}
             {view === "graph" && <RepoGraph repoName={repoName} graphData={graphData} />}
+            {view === "docs" && (
+              <div className="bg-gray-800 rounded-lg p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Documentation</h2>
+                    <p className="text-gray-400 text-sm">Auto-generated architecture overview for the loaded repo.</p>
+                  </div>
+                </div>
+                {docsLoading && (
+                  <div className="bg-gray-900 rounded-lg p-4 text-gray-300">
+                    Loading documentation...
+                  </div>
+                )}
+                {docsError && (
+                  <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+                    <p className="text-red-400 text-sm">{docsError}</p>
+                  </div>
+                )}
+                {docsReadme && !docsLoading && !docsError && (
+                  <div className="prose prose-invert max-w-none">
+                    <ArchitecturePanel readme={docsReadme} />
+                  </div>
+                )}
+                {!docsReadme && !docsLoading && !docsError && (
+                  <div className="bg-gray-900 rounded-lg p-4 text-gray-400">
+                    Click the Documentation tab to generate a README summary for this repo.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
