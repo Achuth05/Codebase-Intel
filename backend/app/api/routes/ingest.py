@@ -7,7 +7,7 @@ router = APIRouter()
 @router.post("/ingest", response_model=IngestResponse)
 def ingest(request: IngestRequest):
     try:
-        result = ingest_repo(request.github_url, request.force)
+        result = ingest_repo(request.github_url, request.force, request.user_id)
         return IngestResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

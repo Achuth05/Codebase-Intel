@@ -3,12 +3,15 @@ from app.api.schemas.ask_schema import AskRequest, AskResponse
 from app.services.qa_service import answer_question, reset_conversation
 from app.llm.rag_chain import stream_chain
 from fastapi.responses import StreamingResponse
+from app.utils.repo_store import user_has_access
 
 router = APIRouter()
 
 @router.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest):
     try:
+        if not user_has_access(request.repo_name, request.user_id):
+            raise HTTPException(status_code=403, detail="Forbidden")
         result = answer_question(request.repo_name, request.question, request.k)
         return AskResponse(
             question=request.question,
@@ -24,6 +27,8 @@ def ask(request: AskRequest):
 @router.post("/ask/stream")
 def ask_stream(request: AskRequest):
     try:
+        if not user_has_access(request.repo_name, request.user_id):
+            raise HTTPException(status_code=403, detail="Forbidden")
         return StreamingResponse(
             stream_chain(request.repo_name, request.question),
             media_type="text/plain"
