@@ -20,7 +20,8 @@ export default function ImpactPage() {
       const data = await getImpact(repoName, filePath);
       setResult(data);
     } catch (e: any) {
-      setError(e.response?.data?.detail || "Something went wrong");
+      const errorMsg = e.response?.data?.detail || e.message || "Something went wrong";
+      setError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
     } finally {
       setLoading(false);
     }

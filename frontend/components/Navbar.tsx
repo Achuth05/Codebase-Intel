@@ -52,46 +52,56 @@ export default function Navbar() {
   const initials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <nav className="bg-gray-900 border-b border-gray-700 px-6 py-4">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <Link href="/" className="text-white text-xl font-bold">
-          Codebase Intel
+    <nav className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
+
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-xs font-bold">CI</span>
+          </div>
+          <span className="text-slate-900 font-semibold text-sm">Codebase Intel</span>
         </Link>
-        <div className="flex items-center gap-6">
+
+        {/* Nav links */}
+        <div className="flex items-center gap-1">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm transition ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                 pathname === link.href
-                  ? "text-white font-medium"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-indigo-50 text-indigo-600"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
               {link.label}
             </Link>
           ))}
 
+          {/* Divider */}
+          <div className="w-px h-5 bg-slate-200 mx-2" />
+
           {/* Account dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-blue-700 transition"
+              className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-indigo-700 transition shadow-sm"
             >
               {initials}
             </button>
 
             {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
-                <div className="px-4 py-3 border-b border-gray-700">
-                  <p className="text-white text-sm font-medium truncate">{userName}</p>
-                  <p className="text-gray-400 text-xs truncate">{user?.email}</p>
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-slate-900 text-sm font-medium truncate">{userName}</p>
+                  <p className="text-slate-400 text-xs truncate">{user?.email}</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-3 text-red-400 hover:text-red-300 hover:bg-gray-700 text-sm transition rounded-b-lg"
+                  className="w-full text-left px-4 py-3 text-red-500 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition"
                 >
-                  Logout
+                  Sign out
                 </button>
               </div>
             )}

@@ -1,1 +1,13 @@
-{"repos": {}}
+{
+  "repos": {
+    "micrograd": {
+      "repo_name": "micrograd",
+      "repo_url": "https://github.com/karpathy/micrograd",
+      "repo_path": "app/repos/micrograd",
+      "chroma_path": "app/data/chroma_db\\micrograd",
+      "owners": [
+        "205d7da4-48cd-44bb-bed2-8e4ba3c158d4"
+      ]
+    }
+  }
+}

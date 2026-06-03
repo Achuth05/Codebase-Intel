@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 import ArchitecturePanel from "@/components/ArchitecturePanel";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { generateReadme } from "@/services/api";
@@ -18,48 +19,58 @@ export default function DocsPage() {
       const data = await generateReadme(repoName);
       setReadme(data.readme);
     } catch (e: any) {
-      setError(e.response?.data?.detail || "Something went wrong");
+      const errorMsg = e.response?.data?.detail || e.message || "Something went wrong";
+      setError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Documentation</h1>
-        <p className="text-gray-400">Auto-generate a README for any ingested repo.</p>
-      </div>
-
-      <div className="flex gap-3">
-        <input
-          type="text"
-          value={repoName}
-          onChange={(e) => setRepoName(e.target.value)}
-          placeholder="repo name (e.g. fastapi)"
-          className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500"
-        />
-        <button
-          onClick={generate}
-          disabled={loading || !repoName}
-          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg text-sm font-medium transition"
-        >
-          Generate README
-        </button>
-      </div>
-
-      {loading && (
-        <div className="text-center">
-          <LoadingSpinner />
-          <p className="text-gray-400 text-sm mt-2">Analyzing architecture...</p>
+    <AuthGuard>
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">Documentation</h1>
+          <p className="text-slate-500 text-sm">Auto-generate a README for any ingested repo.</p>
         </div>
-      )}
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-          <p className="text-red-400 text-sm">{error}</p>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex gap-3">
+          <input
+            type="text"
+            value={repoName}
+            onChange={(e) => setRepoName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && generate()}
+            placeholder="repo name (e.g. fastapi)"
+            className="flex-1 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition placeholder:text-slate-400"
+          />
+          <button
+            onClick={generate}
+            disabled={loading || !repoName}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-md shadow-emerald-100 hover:shadow-emerald-200 transition-all duration-200"
+          >
+            Generate README
+          </button>
         </div>
-      )}
-      {readme && <ArchitecturePanel readme={readme} />}
-    </div>
+
+        {loading && (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center">
+            <LoadingSpinner />
+            <p className="text-emerald-600 text-sm font-medium mt-3">Analyzing architecture...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {readme && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <ArchitecturePanel readme={readme} />
+          </div>
+        )}
+      </div>
+    </AuthGuard>
   );
 }

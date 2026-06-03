@@ -43,7 +43,7 @@ def file_summary(repo_name: str, file_path: str, user_id: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/graph/{repo_name}/most-imported")
-def most_imported(repo_name: str, top_n: int = 10, user_id: str = ""):
+def most_imported(repo_name: str, user_id: str, top_n: int = 10):
     if not user_has_access(repo_name, user_id):
         raise HTTPException(status_code=403, detail="Forbidden")
     try:

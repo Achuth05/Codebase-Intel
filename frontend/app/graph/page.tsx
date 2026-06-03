@@ -20,13 +20,18 @@ export default function GraphPage() {
     setLoading(true);
     setError("");
     try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user.id;
+      if (!userId) throw new Error("Not authenticated");
+
       // Load stats
       const statsData = await getGraphStats(repoName);
       setStats(statsData);
 
       // Load all functions to build node list
-      const functionsData = await api.get(`/api/graph/${repoName}/functions`);
-      const classesData = await api.get(`/api/graph/${repoName}/classes`);
+      const functionsData = await api.get(`/api/graph/${repoName}/functions`, { params: { user_id: userId } });
+      const classesData = await api.get(`/api/graph/${repoName}/classes`, { params: { user_id: userId } });
 
       // Build unique file nodes from functions and classes
       const fileSet = new Set<string>();
@@ -43,7 +48,8 @@ export default function GraphPage() {
       const edges: { source: string; target: string }[] = [];
       for (const imp of statsData.most_imported.slice(0, 5)) {
         const res = await api.get(
-          `/api/graph/${repoName}/imports/${imp.module}`
+          `/api/graph/${repoName}/imports`,
+          { params: { module_name: imp.module, user_id: userId } }
         );
         res.data.imported_by.slice(0, 20).forEach((file: string) => {
           edges.push({ source: file, target: imp.module });
@@ -56,7 +62,8 @@ export default function GraphPage() {
 
       setGraphData({ nodes, edges });
     } catch (e: any) {
-      setError(e.response?.data?.detail || "Failed to load graph");
+      const errorMsg = e.response?.data?.detail || e.message || "Failed to load graph";
+      setError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
     } finally {
       setLoading(false);
     }

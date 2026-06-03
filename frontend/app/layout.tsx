@@ -44,9 +44,11 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-950 min-h-screen`}>
+      <body className={`${inter.className} bg-slate-50 min-h-screen text-slate-900`}>
         {!hideNavbar && <Navbar />}
-        <main className="max-w-6xl mx-auto px-6 py-8">{children}</main>
+        <main className={`${hideNavbar ? "w-full p-0" : "max-w-6xl mx-auto px-6 py-10"}`}>
+          {children}
+        </main>
       </body>
     </html>
   );

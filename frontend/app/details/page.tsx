@@ -35,11 +35,16 @@ export default function DetailsPage() {
     setLoading(true);
     setError("");
     try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user.id;
+      if (!userId) throw new Error("Not authenticated");
+
       const statsData = await getGraphStats(repoName);
       setStats(statsData);
 
-      const functionsData = await api.get(`/api/graph/${repoName}/functions`);
-      const classesData = await api.get(`/api/graph/${repoName}/classes`);
+      const functionsData = await api.get(`/api/graph/${repoName}/functions`, { params: { user_id: userId } });
+      const classesData = await api.get(`/api/graph/${repoName}/classes`, { params: { user_id: userId } });
 
       const fileSet = new Set<string>();
       functionsData.data.functions.forEach((f: any) => { if (f.file) fileSet.add(f.file); });
@@ -49,9 +54,7 @@ export default function DetailsPage() {
       const edges: { source: string; target: string }[] = [];
 
       for (const imp of statsData.most_imported.slice(0, 5)) {
-        const res = await api.get(`/api/graph/${repoName}/imports`, {
-          params: { module_name: imp.module }
-        });
+        const res = await api.get(`/api/graph/${repoName}/imports`, { params: { module_name: imp.module, user_id: userId } });
         res.data.imported_by.slice(0, 20).forEach((file: string) => {
           edges.push({ source: file, target: imp.module });
           if (!fileSet.has(imp.module)) {
@@ -62,8 +65,10 @@ export default function DetailsPage() {
       }
       setGraphData({ nodes, edges });
     } catch (e: any) {
-      setError("Repo not found. Please ingest it first.");
+      const errorMsg = e.response?.data?.detail || e.message || "Repo not found. Please ingest it first.";
+      setError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
     } finally {
+      setLoading(false);
       setDocsReadme(null);
       setDocsError("");
       setView("stats");
@@ -84,7 +89,8 @@ export default function DetailsPage() {
       setFileSummary(summary);
       setImpact(impactData);
     } catch (e: any) {
-      setError("File not found in graph.");
+      const errorMsg = e.response?.data?.detail || e.message || "File not found in graph.";
+      setError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
       setFileSummary(null);
       setImpact(null);
     } finally {
@@ -93,15 +99,15 @@ export default function DetailsPage() {
   };
 
   const loadDocs = async () => {
-    if (!repoName) return;
-    if (docsReadme) return;
+    if (!repoName || docsReadme) return;
     setDocsLoading(true);
     setDocsError("");
     try {
       const data = await generateReadme(repoName);
       setDocsReadme(data.readme);
     } catch (e: any) {
-      setDocsError(e.response?.data?.detail || "Could not load documentation.");
+      const errorMsg = e.response?.data?.detail || e.message || "Could not load documentation.";
+      setDocsError(typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg));
     } finally {
       setDocsLoading(false);
     }
@@ -115,52 +121,57 @@ export default function DetailsPage() {
     try {
       const data = await getFunctionDescription(repoName, filePath, funcName);
       setFunctionDesc(data);
-    } catch {
-      setFunctionDesc({ function: funcName, description: "Could not load description." });
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.detail || e.message || "Could not load description.";
+      setFunctionDesc({ function: funcName, description: typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg) });
     } finally {
       setLoadingFuncDesc(false);
     }
   };
 
+  const tabs = [
+    { key: "stats", label: "Stats" },
+    { key: "graph", label: "Interactive Graph" },
+    { key: "docs", label: "Documentation" },
+  ] as const;
+
   return (
     <AuthGuard>
-      <div className="space-y-8">
+      <div className="space-y-6">
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Details</h1>
-            <p className="text-gray-400">Graph, impact analysis and file insights.</p>
+            <h1 className="text-2xl font-bold text-slate-900 mb-1">Details</h1>
+            <p className="text-slate-500 text-sm">Graph, impact analysis and file insights.</p>
           </div>
           {(stats || impact) && (
-            <ExportPDF
-              repoName={repoName}
-              graphStats={stats}
-              impactData={impact}
-              fileSummary={fileSummary}
-            />
+            <ExportPDF repoName={repoName} graphStats={stats} impactData={impact} fileSummary={fileSummary} />
           )}
         </div>
 
         {/* Repo loader */}
-        <div className="flex gap-3">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex gap-3">
           <input
             type="text"
             value={repoName}
             onChange={(e) => setRepoName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && loadRepo()}
             placeholder="repo name (e.g. micrograd)"
-            className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500"
+            className="flex-1 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition placeholder:text-slate-400"
           />
           <button
             onClick={loadRepo}
             disabled={loading || !repoName}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg text-sm font-medium transition"
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-md shadow-indigo-100 hover:shadow-indigo-200 transition-all duration-200"
           >
             Load
           </button>
         </div>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
@@ -169,109 +180,92 @@ export default function DetailsPage() {
         {/* Graph section */}
         {graphData && (
           <div className="space-y-4">
-            <div className="flex gap-3">
-              <button
-                onClick={() => setView("stats")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  view === "stats" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}
-              >
-                Stats View
-              </button>
-              <button
-                onClick={() => setView("graph")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  view === "graph" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}
-              >
-                Interactive Graph
-              </button>
-              <button
-                onClick={async () => {
-                  setView("docs");
-                  await loadDocs();
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  view === "docs" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"
-                }`}
-              >
-                Documentation
-              </button>
+            {/* Tabs */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={async () => {
+                    setView(t.key);
+                    if (t.key === "docs") await loadDocs();
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                    view === t.key
+                      ? "bg-white text-indigo-600 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
+
             {view === "stats" && stats && <GraphStats data={stats} />}
             {view === "graph" && <RepoGraph repoName={repoName} graphData={graphData} />}
             {view === "docs" && (
-              <div className="bg-gray-800 rounded-lg p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">Documentation</h2>
-                    <p className="text-gray-400 text-sm">Auto-generated architecture overview for the loaded repo.</p>
-                  </div>
-                </div>
-                {docsLoading && (
-                  <div className="bg-gray-900 rounded-lg p-4 text-gray-300">
-                    Loading documentation...
-                  </div>
-                )}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-slate-900 font-semibold mb-1">Documentation</h2>
+                <p className="text-slate-400 text-sm mb-4">Auto-generated architecture overview.</p>
+                {docsLoading && <LoadingSpinner />}
                 {docsError && (
-                  <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-                    <p className="text-red-400 text-sm">{docsError}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <p className="text-red-600 text-sm">{docsError}</p>
                   </div>
                 )}
-                {docsReadme && !docsLoading && !docsError && (
-                  <div className="prose prose-invert max-w-none">
-                    <ArchitecturePanel readme={docsReadme} />
-                  </div>
-                )}
+                {docsReadme && !docsLoading && <ArchitecturePanel readme={docsReadme} />}
                 {!docsReadme && !docsLoading && !docsError && (
-                  <div className="bg-gray-900 rounded-lg p-4 text-gray-400">
-                    Click the Documentation tab to generate a README summary for this repo.
-                  </div>
+                  <p className="text-slate-400 text-sm">Generating documentation...</p>
                 )}
               </div>
             )}
           </div>
         )}
 
-        {/* File details section */}
+        {/* File Analysis */}
         {repoName && (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-white">File Analysis</h2>
-            <div className="flex gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">File Analysis</h2>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex gap-3">
               <input
                 type="text"
                 value={filePath}
                 onChange={(e) => setFilePath(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && loadFileDetails()}
                 placeholder="file path (e.g. micrograd/engine.py)"
-                className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-slate-50 text-slate-900 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition placeholder:text-slate-400"
               />
               <button
                 onClick={loadFileDetails}
                 disabled={loading || !filePath}
-                className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg text-sm font-medium transition"
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white px-6 py-3 rounded-xl text-sm font-semibold shadow-md shadow-violet-100 hover:shadow-violet-200 transition-all duration-200"
               >
-                Analyze File
+                Analyze
               </button>
             </div>
 
             {fileSummary && (
-              <div className="bg-gray-800 rounded-lg p-5 space-y-4">
-                <h3 className="text-white font-mono text-sm">{fileSummary.file}</h3>
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-slate-100 text-slate-600 font-mono px-2 py-1 rounded-lg">
+                    {fileSummary.file}
+                  </span>
+                </div>
+
                 {/* Functions */}
                 <div>
-                  <p className="text-gray-400 text-xs mb-2">
+                  <p className="text-slate-500 text-xs font-medium mb-2">
                     Functions ({fileSummary.functions.length}) — click to see description
                   </p>
-
                   <div className="flex flex-wrap gap-2">
                     {fileSummary.functions.map((f: string, i: number) => (
                       <button
                         key={i}
                         onClick={() => handleFunctionClick(f)}
-                        className={`text-xs font-mono px-2 py-1 rounded transition ${
+                        className={`text-xs font-mono px-2.5 py-1 rounded-lg transition-all duration-150 ${
                           selectedFunction === f
-                            ? "bg-yellow-500 text-gray-900"
-                            : "bg-gray-700 hover:bg-gray-600 text-yellow-300"
+                            ? "bg-amber-100 text-amber-700 border border-amber-200"
+                            : "bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-700 border border-slate-200 hover:border-amber-200"
                         }`}
                       >
                         {f}
@@ -280,63 +274,51 @@ export default function DetailsPage() {
                   </div>
 
                   {loadingFuncDesc && (
-                    <div className="mt-3 bg-gray-700 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-gray-400 text-xs">
-                          Loading description...
-                        </p>
-                      </div>
+                    <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-slate-400 text-xs">Loading description...</p>
                     </div>
                   )}
 
                   {functionDesc && !loadingFuncDesc && (
-                    <div className="mt-3 bg-yellow-900/20 border border-yellow-800 rounded-lg p-3">
-                      <p className="text-yellow-400 text-xs font-medium mb-1">
-                        ⚡ {functionDesc.function}
-                      </p>
-                      <p className="text-sm text-gray-300 leading-relaxed">
-                        {functionDesc.description}
-                      </p>
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                      <p className="text-amber-700 text-xs font-semibold mb-1">⚡ {functionDesc.function}</p>
+                      <p className="text-slate-600 text-sm leading-relaxed">{functionDesc.description}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Classes */}
-                <div>
-                  <p className="text-gray-400 text-xs mb-2">
-                    Classes ({fileSummary.classes.length})
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {fileSummary.classes.map((cls, i) => (
-                      <span
-                        key={i}
-                        className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-purple-300"
-                      >
-                        {cls}
-                      </span>
-                    ))}
+                {fileSummary.classes.length > 0 && (
+                  <div>
+                    <p className="text-slate-500 text-xs font-medium mb-2">
+                      Classes ({fileSummary.classes.length})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {fileSummary.classes.map((cls, i) => (
+                        <span key={i} className="text-xs font-mono bg-violet-50 text-violet-700 border border-violet-100 px-2.5 py-1 rounded-lg">
+                          {cls}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Imports */}
-                <div>
-                  <p className="text-gray-400 text-xs mb-2">
-                    Imports ({fileSummary.imports.length})
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {fileSummary.imports.map((imp, i) => (
-                      <span
-                        key={i}
-                        className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-blue-300"
-                      >
-                        {imp}
-                      </span>
-                    ))}
+                {fileSummary.imports.length > 0 && (
+                  <div>
+                    <p className="text-slate-500 text-xs font-medium mb-2">
+                      Imports ({fileSummary.imports.length})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {fileSummary.imports.map((imp, i) => (
+                        <span key={i} className="text-xs font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-lg">
+                          {imp}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
