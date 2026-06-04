@@ -3,18 +3,22 @@
 ## Architecture Overview
 **Technical Architecture Summary: Micrograd Codebase**
 
-The micrograd codebase is a Python-based repository consisting of 4 files, with a focus on machine learning and neural networks. The architecture can be summarized as follows:
+The micrograd codebase is a Python-based repository consisting of 4 files, with a focus on implementing a minimal deep learning framework. The architecture is modular, with 5 key classes that form the foundation of the framework:
 
-* **Core Components**: The codebase defines 5 key classes: `Value`, `Neuron`, `Layer`, `MLP`, and `Module`. These classes form the foundation of the micrograd framework, providing basic building blocks for neural network construction and computation.
-* **Dependencies**: The codebase relies on several external dependencies, including:
-	+ `micrograd/engine.py`: a custom engine for neural network computations
-	+ `setuptools`: a package for building and distributing Python packages
-	+ `random`: a built-in Python library for generating random numbers
-	+ `torch`: a popular open-source machine learning library ( potentially used for comparison or integration purposes)
-* **Design Patterns**: The use of classes such as `Neuron`, `Layer`, and `MLP` suggests a modular, object-oriented design. This allows for flexible and reusable components, enabling the construction of complex neural networks.
-* **Inferences**: Given the presence of `torch` as a dependency, it is likely that the micrograd codebase is designed to provide a lightweight, alternative implementation of neural network computations, potentially for educational or research purposes.
+1. **Value**: Represents a scalar value, potentially used for numerical computations.
+2. **Neuron**: A basic building block of the neural network, likely responsible for processing inputs and producing outputs.
+3. **Layer**: A collection of neurons, forming a single layer in the neural network.
+4. **MLP (Multi-Layer Perceptron)**: A specific type of neural network composed of multiple layers.
+5. **Module**: A generic class that may serve as a base for other components or provide utility functions.
 
-Overall, the micrograd codebase appears to be a compact, Python-based framework for building and experimenting with neural networks, leveraging a combination of custom and external dependencies to provide a functional and modular architecture.
+The codebase relies on the following top dependencies:
+
+* **micrograd/engine.py**: A custom module, likely containing core functionality for the micrograd framework.
+* **setuptools**: A package for building and distributing Python packages.
+* **random**: A built-in Python library for generating random numbers.
+* **torch**: A popular deep learning framework, potentially used for comparison, testing, or as a reference implementation.
+
+Overall, the micrograd codebase appears to be a lightweight, educational, or proof-of-concept implementation of a deep learning framework, with a focus on simplicity and modularity. Its architecture is designed to facilitate experimentation and understanding of fundamental deep learning concepts.
 
 ## Project Structure
 - Total files analyzed: 4
