@@ -82,13 +82,19 @@ export const askQuestionStream = async (
   onSources: (sources: string[]) => void,
   onDone: () => void
 ): Promise<void> => {
-  const user_id = await getUserId();
+  // Get token from Supabase
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || "";
+
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/ask/stream`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo_name, question, user_id }),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({ repo_name, question }),
     }
   );
 
@@ -106,7 +112,6 @@ export const askQuestionStream = async (
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Check if sources marker arrived
     if (buffer.includes("__SOURCES__")) {
       const [text, sourcesPart] = buffer.split("__SOURCES__");
       onChunk(text);

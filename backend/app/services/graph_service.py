@@ -9,42 +9,44 @@ from app.graph.graph_queries import (
     get_function_impact
 )
 
-def get_imports(repo_name, module_name):
-    G = load_graph(repo_name)
+def _load(repo_name: str, user_id: str):
+    return load_graph(repo_name, user_id=user_id)
+
+def get_imports(repo_name: str, module_name: str, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return {"module": module_name, "imported_by": get_files_importing(G, module_name)}
 
-def get_functions(repo_name):
-    G = load_graph(repo_name)
+def get_functions(repo_name: str, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return {"functions": get_all_functions(G)}
 
-def get_classes(repo_name):
-    G = load_graph(repo_name)
+def get_classes(repo_name: str, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return {"classes": get_all_classes(G)}
 
-def get_file(repo_name, file_path):
-    G = load_graph(repo_name)
+def get_file(repo_name: str, file_path: str, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return get_file_summary(G, file_path)
 
-def get_top_imports(repo_name, top_n=10):
-    G = load_graph(repo_name)
+def get_top_imports(repo_name: str, user_id: str, top_n: int = 10) -> dict:
+    G = _load(repo_name, user_id)
     return {"most_imported": get_most_imported(G, top_n)}
 
-def get_file_details_service(repo_name, file_path):
-    G = load_graph(repo_name)
+def get_file_details_service(repo_name: str, file_path: str, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return get_file_details(G, file_path)
 
-def get_function_impact_service(repo_name, file_path, functions):
-    G = load_graph(repo_name)
+def get_function_impact_service(repo_name: str, file_path: str, functions: list, user_id: str) -> dict:
+    G = _load(repo_name, user_id)
     return get_function_impact(G, file_path, functions)
 
-def get_file_description(repo_name, file_path):
+def get_file_description(repo_name: str, file_path: str, user_id: str) -> dict:
     from groq import Groq
     import os
-    from app.config import GROQ_API_KEY, REPOS_DIR
+    from app.config import GROQ_API_KEY, get_user_repos_path
 
-    details = get_file_details_service(repo_name, file_path)
-
-    full_path = os.path.join(REPOS_DIR, repo_name, file_path)
+    details = get_file_details_service(repo_name, file_path, user_id)
+    full_path = os.path.join(get_user_repos_path(user_id), repo_name, file_path)
     content = ""
     try:
         with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -65,12 +67,12 @@ def get_file_description(repo_name, file_path):
     )
     return {**details, "description": response.choices[0].message.content.strip()}
 
-def get_function_description(repo_name: str, file_path: str, function_name: str) -> dict:
+def get_function_description(repo_name: str, file_path: str, function_name: str, user_id: str) -> dict:
     from groq import Groq
     import os
-    from app.config import GROQ_API_KEY, REPOS_DIR
+    from app.config import GROQ_API_KEY, get_user_repos_path
 
-    full_path = os.path.join(REPOS_DIR, repo_name, file_path)
+    full_path = os.path.join(get_user_repos_path(user_id), repo_name, file_path)
     content = ""
     try:
         with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -78,12 +80,11 @@ def get_function_description(repo_name: str, file_path: str, function_name: str)
     except Exception:
         pass
 
-    # Extract just the function code
     snippet = ""
     lines = content.split("\n")
     in_function = False
-    indent = ""
-    for i, line in enumerate(lines):
+    indent = 0
+    for line in lines:
         if f"def {function_name}" in line or f"function {function_name}" in line:
             in_function = True
             indent = len(line) - len(line.lstrip())
@@ -101,19 +102,12 @@ def get_function_description(repo_name: str, file_path: str, function_name: str)
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {
-                "role": "system",
-                "content": "You are a code analyst. Write a 1-2 sentence plain English description of what this function does. Be very concise."
-            },
-            {
-                "role": "user",
-                "content": f"Function: {function_name}\nFile: {file_path}\nCode:\n{snippet}"
-            }
+            {"role": "system", "content": "Write a 1-2 sentence plain English description of what this function does. Be very concise."},
+            {"role": "user", "content": f"Function: {function_name}\nFile: {file_path}\nCode:\n{snippet}"}
         ],
         temperature=0.2,
         max_tokens=100
     )
-
     return {
         "function": function_name,
         "file": file_path,

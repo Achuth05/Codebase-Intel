@@ -7,7 +7,6 @@ from app.embeddings.vector_store import load_vectorstore
 from app.config import GROQ_API_KEY
 from typing import Generator
 
-# Store chain + history per repo
 _chain_cache: dict = {}
 _history_cache: dict = {}
 
@@ -18,11 +17,12 @@ def format_docs(docs):
         result += doc.page_content + "\n"
     return result
 
-def get_rag_chain(repo_name: str):
-    if repo_name in _chain_cache:
-        return _chain_cache[repo_name]
+def get_rag_chain(repo_name: str, user_id: str):
+    key = f"{user_id}:{repo_name}"
+    if key in _chain_cache:
+        return _chain_cache[key]
 
-    vectorstore = load_vectorstore(repo_name)
+    vectorstore = load_vectorstore(repo_name, user_id=user_id)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
     llm = ChatGroq(
@@ -51,74 +51,69 @@ Answer in markdown:""")
         {
             "context": retriever | format_docs,
             "question": RunnablePassthrough(),
-            "chat_history": lambda x: _get_history_string(repo_name)
+            "chat_history": lambda x: _get_history_string(key)
         }
         | prompt
         | llm
         | StrOutputParser()
     )
 
-    _chain_cache[repo_name] = chain
-    _history_cache[repo_name] = []
+    _chain_cache[key] = chain
+    _history_cache[key] = []
     return chain
 
 
-def _get_history_string(repo_name: str) -> str:
-    history = _history_cache.get(repo_name, [])
+def _get_history_string(key: str) -> str:
+    history = _history_cache.get(key, [])
     if not history:
         return "No previous conversation."
     lines = []
-    for msg in history[-6:]:  # last 3 exchanges
+    for msg in history[-6:]:
         role = "User" if isinstance(msg, HumanMessage) else "Assistant"
         lines.append(f"{role}: {msg.content}")
     return "\n".join(lines)
 
 
-def ask_chain(repo_name: str, question: str) -> dict:
-    chain = get_rag_chain(repo_name)
+def ask_chain(repo_name: str, question: str, user_id: str) -> dict:
+    chain = get_rag_chain(repo_name, user_id)
+    key = f"{user_id}:{repo_name}"
 
-    # Get source documents separately for citations
-    vectorstore = load_vectorstore(repo_name)
+    vectorstore = load_vectorstore(repo_name, user_id=user_id)
     docs = vectorstore.similarity_search(question, k=5)
     sources = list(set([doc.metadata.get("file_path", "") for doc in docs]))
 
     answer = chain.invoke(question)
 
-    # Save to history
-    if repo_name not in _history_cache:
-        _history_cache[repo_name] = []
-    _history_cache[repo_name].append(HumanMessage(content=question))
-    _history_cache[repo_name].append(AIMessage(content=answer))
+    if key not in _history_cache:
+        _history_cache[key] = []
+    _history_cache[key].append(HumanMessage(content=question))
+    _history_cache[key].append(AIMessage(content=answer))
 
-    return {
-        "answer": answer,
-        "sources": sources
-    }
+    return {"answer": answer, "sources": sources}
 
 
-def clear_memory(repo_name: str):
-    _chain_cache.pop(repo_name, None)
-    _history_cache.pop(repo_name, None)
+def clear_memory(key: str):
+    _chain_cache.pop(key, None)
+    _history_cache.pop(key, None)
 
-def stream_chain(repo_name: str, question: str) -> Generator[str, None, None]:
+
+def stream_chain(repo_name: str, question: str, user_id: str) -> Generator[str, None, None]:
     print(f"stream_chain called: repo={repo_name}, question={question}")
-    chain = get_rag_chain(repo_name)
-    
-    # Get relevant docs for sources
-    vectorstore = load_vectorstore(repo_name)
+    key = f"{user_id}:{repo_name}"
+    chain = get_rag_chain(repo_name, user_id)
+
+    vectorstore = load_vectorstore(repo_name, user_id=user_id)
     docs = vectorstore.similarity_search(question, k=5)
     sources = list(set([doc.metadata.get("file_path", "") for doc in docs]))
 
-    # Stream the response token by token
     for chunk in chain.stream(question):
         if isinstance(chunk, str):
             yield chunk
         elif hasattr(chunk, 'content'):
             yield chunk.content
 
-    # Save to history after streaming
-    if repo_name not in _history_cache:
-        _history_cache[repo_name] = []
-    _history_cache[repo_name].append(HumanMessage(content=question))
+    if key not in _history_cache:
+        _history_cache[key] = []
+    _history_cache[key].append(HumanMessage(content=question))
 
     yield f"\n\n__SOURCES__{','.join(sources)}"

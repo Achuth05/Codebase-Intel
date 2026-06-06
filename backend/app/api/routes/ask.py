@@ -1,18 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.api.schemas.ask_schema import AskRequest, AskResponse
 from app.services.qa_service import answer_question, reset_conversation
 from app.llm.rag_chain import stream_chain
+from app.api.auth import get_current_user
 from fastapi.responses import StreamingResponse
-from app.utils.repo_store import user_has_access
 
 router = APIRouter()
 
 @router.post("/ask", response_model=AskResponse)
-def ask(request: AskRequest):
+def ask(request: AskRequest, user_id: str = Depends(get_current_user)):
     try:
-        if not user_has_access(request.repo_name, request.user_id):
-            raise HTTPException(status_code=403, detail="Forbidden")
-        result = answer_question(request.repo_name, request.question, request.k)
+        result = answer_question(request.repo_name, request.question, user_id=user_id, k=request.k)
         return AskResponse(
             question=request.question,
             answer=result["answer"],
@@ -25,12 +23,10 @@ def ask(request: AskRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ask/stream")
-def ask_stream(request: AskRequest):
+def ask_stream(request: AskRequest, user_id: str = Depends(get_current_user)):
     try:
-        if not user_has_access(request.repo_name, request.user_id):
-            raise HTTPException(status_code=403, detail="Forbidden")
         return StreamingResponse(
-            stream_chain(request.repo_name, request.question),
+            stream_chain(request.repo_name, request.question, user_id=user_id),
             media_type="text/plain"
         )
     except Exception as e:
@@ -39,5 +35,5 @@ def ask_stream(request: AskRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/ask/{repo_name}/memory")
-def reset_memory(repo_name: str):
-    return reset_conversation(repo_name)
+def reset_memory(repo_name: str, user_id: str = Depends(get_current_user)):
+    return reset_conversation(repo_name, user_id)

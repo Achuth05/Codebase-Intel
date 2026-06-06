@@ -1,21 +1,21 @@
 import os
-from app.pipeline import run_pipeline
-from app.config import REPOS_DIR, CHROMA_DB_PATH
-from app.utils.repo_store import find_by_url, add_repo, add_owner, get_repo
+from app.config import get_user_repos_path
 
+def repo_already_ingested(repo_name: str, user_id: str) -> bool:
+    from supabase import create_client
+    from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
+    sb = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    result = sb.table("repositories").select("id").eq("user_id", user_id).eq("repo_name", repo_name).execute()
+    return len(result.data) > 0
 
-def ingest_repo(github_url: str, force: bool = False, user_id: str = "") -> dict:
+def ingest_repo(github_url: str, user_id: str, force: bool = False) -> dict:
     repo_name = github_url.rstrip("/").split("/")[-1].replace(".git", "")
 
-    # If repo exists by URL, link owner and return existing metadata
-    existing = find_by_url(github_url)
-    if existing and not force:
-        add_owner(existing, user_id)
-        meta = get_repo(existing)
+    if repo_already_ingested(repo_name, user_id) and not force:
         return {
-            "status": "already_exists",
-            "repo_name": existing,
-            "repo_path": meta.get("repo_path", f"{REPOS_DIR}/{existing}"),
+            "status": "already_ingested",
+            "repo_name": repo_name,
+            "repo_path": f"{get_user_repos_path(user_id)}/{repo_name}",
             "total_files": 0,
             "total_chunks": 0,
             "graph_nodes": 0,
@@ -23,21 +23,15 @@ def ingest_repo(github_url: str, force: bool = False, user_id: str = "") -> dict
             "errors": []
         }
 
-    # Otherwise run pipeline (this will clone/parse/store)
-    result = run_pipeline(github_url)
-    repo_name = result["repo_path"].rstrip("/").split("/")[-1]
-
-    chroma_path = os.path.join(CHROMA_DB_PATH, repo_name)
-    repo_path = result["repo_path"]
-    add_repo(repo_name, github_url, repo_path, chroma_path, user_id)
-
+    from app.pipeline import run_pipeline
+    result = run_pipeline(github_url, user_id=user_id)
     return {
         "status": "success",
-        "repo_name": repo_name,
-        "repo_path": repo_path,
-        "total_files": result.get("total_files", 0),
-        "total_chunks": result.get("total_chunks", 0),
-        "graph_nodes": result.get("graph_nodes", 0),
-        "graph_edges": result.get("graph_edges", 0),
+        "repo_name": result["repo_name"],
+        "repo_path": result["repo_path"],
+        "total_files": result["total_files"],
+        "total_chunks": result["total_chunks"],
+        "graph_nodes": result["graph_nodes"],
+        "graph_edges": result["graph_edges"],
         "errors": result.get("errors", [])
     }

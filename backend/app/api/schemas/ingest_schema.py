@@ -3,7 +3,6 @@ from pydantic import BaseModel
 class IngestRequest(BaseModel):
     github_url: str
     force: bool = False
-    user_id: str
 
 class IngestResponse(BaseModel):
     status: str

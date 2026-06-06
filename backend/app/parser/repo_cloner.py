@@ -12,18 +12,18 @@ def get_repo_name(github_url: str) -> str:
     return match.group(1)
 
 def force_remove_readonly(func, path, excinfo):
-    # Windows fix: remove read-only flag then retry delete
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
-def clone_repo(github_url: str) -> str:
+def clone_repo(github_url: str, clone_dir: str = None) -> str:
     repo_name = get_repo_name(github_url)
-    clone_path = os.path.join(REPOS_DIR, repo_name)
+    base_dir = clone_dir if clone_dir else REPOS_DIR
+    clone_path = os.path.join(base_dir, repo_name)
 
     if os.path.exists(clone_path):
         shutil.rmtree(clone_path, onerror=force_remove_readonly)
 
-    os.makedirs(REPOS_DIR, exist_ok=True)
+    os.makedirs(base_dir, exist_ok=True)
 
     print(f"Cloning {github_url} into {clone_path}...")
     git.Repo.clone_from(github_url, clone_path)
