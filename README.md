@@ -1,85 +1,68 @@
-# Codebase Intel
 
-> AI-powered codebase understanding for developers. Ask anything about any GitHub repository in plain English.
+## Codebase Intel
 
----
+AI-Powered Codebase Understanding Platform
 
-## What it does
+## The Problem
+Large codebases are difficult to navigate, especially for developers who are new to a project or working across unfamiliar repositories. Traditional tools like grep or keyword search return raw results without any semantic understanding, forcing developers to manually trace through hundreds of files to answer basic questions about how a system works, what a function does, or what breaks if a file changes.
 
-Codebase Intel lets you ingest any public GitHub repository and instantly understand it through:
+## The Solution
+Codebase Intel ingests any public GitHub repository and builds an intelligent understanding of it — allowing developers to ask questions in plain English and receive accurate, file-cited answers. Key features include:
 
-- **Natural language chat** — ask questions, get answers with exact file citations
-- **Knowledge graph** — visualize import dependencies and file relationships
-- **Impact analysis** — find which files break if you change a specific file
-- **Function descriptions** — AI-generated descriptions for every function and file
-- **Auto documentation** — generate README-style architecture summaries
-
----
-
----
+- Semantic chat — Ask anything about the codebase and get streaming answers powered by a RAG pipeline with conversation memory
+- Knowledge graph — AST-parsed dependency graph visualizing file relationships and import chains
+- Impact analysis — Identifies which files and modules are affected when a specific file changes
+- Function descriptions — AI-generated descriptions for every function and file in the repo
+- Auto documentation — Generates README-style architecture summaries for any ingested repository
+- Per-user isolation — Each user's ingested data is stored separately using Supabase Auth with row-level security
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI, Python 3.11 |
-| LLM | Groq (Llama 3.3 70B) |
-| Embeddings | HuggingFace (all-MiniLM-L6-v2) |
-| Vector Store | Supabase pgvector |
-| Graph | NetworkX, tree-sitter |
-| RAG | LangChain |
-| Frontend | Next.js 15, TypeScript, Tailwind CSS |
-| Auth & DB | Supabase |
-| Containerization | Docker, Docker Compose |
+**Languages:**
+- Python 3.11
+- TypeScript
+- SQL
 
----
+**Frameworks:**
+- FastAPI (backend API)
+- Next.js 15 (frontend)
+- LangChain (RAG pipeline)
 
-## Getting Started
+**Databases:**
+- Supabase (PostgreSQL + pgvector)
+
+**APIs and Third-party Tools:**
+- Groq API — Llama 3.3 70B (LLM)
+- HuggingFace Inference API — all-MiniLM-L6-v2 (embeddings)
+- Supabase Auth (authentication)
+- GitHub REST API (repository cloning)
+- tree-sitter (AST parsing for JS/TS)
+- NetworkX (knowledge graph)
+- Docker + Docker Compose (containerization)
+- React Flow (interactive graph visualization)
+
+## Setup Instructions
 
 ### Prerequisites
+
 - Python 3.11+
 - Node.js 22+
 - Docker Desktop
-- Supabase account (free tier)
-- Groq API key (free tier)
-- HuggingFace API token (free tier)
+- Supabase account (free tier) — [supabase.com](https://supabase.com)
+- Groq API key (free tier) — [console.groq.com](https://console.groq.com)
+- HuggingFace API token (free tier) — [huggingface.co](https://huggingface.co)
 
 ### 1. Clone the repository
-
 ```bash
 git clone https://github.com/your-username/codebase-intel.git
 cd codebase-intel
 ```
-
-### 2. Set up environment variables
-
-**Backend** — create `backend/.env`:
-```env
-REPOS_DIR=app/repos
-GROQ_API_KEY=your_groq_api_key
-HF_API_TOKEN=your_huggingface_token
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-SUPABASE_JWT_SECRET=your_supabase_jwt_secret
-```
-
-**Frontend** — create `frontend/.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 3. Set up Supabase
-
-Run the following SQL in your Supabase SQL editor:
+### 2. Set up Supabase
+Go to your Supabase dashboard → SQL Editor and run the following:
 
 ```sql
--- Enable pgvector
 create extension if not exists vector;
 
--- Repositories table
 create table repositories (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade,
@@ -93,7 +76,6 @@ create table repositories (
   unique(user_id, repo_name)
 );
 
--- Chunks table (vector store)
 create table chunks (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade,
@@ -107,18 +89,15 @@ create table chunks (
   created_at timestamp with time zone default now()
 );
 
--- Graphs table
 create table graphs (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade,
   repo_name text not null,
   graph_data jsonb not null,
   created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now(),
   unique(user_id, repo_name)
 );
 
--- Similarity search function
 create or replace function match_chunks(
   query_embedding vector(384),
   match_user_id uuid,
@@ -126,16 +105,10 @@ create or replace function match_chunks(
   match_count int default 5
 )
 returns table (
-  id uuid,
-  file_path text,
-  content text,
-  language text,
-  functions text,
-  classes text,
-  similarity float
+  id uuid, file_path text, content text,
+  language text, functions text, classes text, similarity float
 )
-language sql stable
-as $$
+language sql stable as $$
   select id, file_path, content, language, functions, classes,
     1 - (embedding <=> query_embedding) as similarity
   from chunks
@@ -144,7 +117,6 @@ as $$
   limit match_count;
 $$;
 
--- Enable RLS
 alter table repositories enable row level security;
 alter table chunks enable row level security;
 alter table graphs enable row level security;
@@ -159,12 +131,42 @@ create policy "Users can only access their own graphs"
 on graphs for all using (auth.uid() = user_id);
 ```
 
-### 4. Run with Docker
+Also go to **Authentication → Settings** and disable email confirmation for easier testing.
 
+### 3. Configure environment variables
+**Backend** — create `backend/.env`:
+
+```env
+REPOS_DIR=app/repos
+GROQ_API_KEY=your_groq_api_key
+HF_API_TOKEN=your_huggingface_token
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+```
+
+**Frontend** — create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+**Root** — create `.env` in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+---
+
+### 4. Run with Docker (recommended)
 ```bash
 docker-compose up --build
 ```
-
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
@@ -172,15 +174,23 @@ docker-compose up --build
 ### 5. Run without Docker (development)
 
 **Backend:**
+
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate  # Windows
+
+# Windows
+venv\Scripts\activate
+
+# Mac/Linux
+source venv/bin/activate
+
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-**Frontend:**
+**Frontend** (in a separate terminal):
+
 ```bash
 cd frontend
 npm install
@@ -189,13 +199,10 @@ npm run dev
 
 ---
 
-## Usage
-
-1. **Sign up** at `http://localhost:3000`
-2. **Ingest** a public GitHub repo URL
-3. **Chat** — ask anything about the codebase
-4. **Details** — explore the dependency graph and analyze files
-5. **Impact** — see what breaks if a file changes
-
----
-
+### 6. Usage
+1. Open http://localhost:3000
+2. Sign up for an account
+3. Go to **Ingest** and paste any public GitHub URL
+4. Wait for ingestion to complete (2–10 minutes depending on repo size)
+5. Go to **Chat** and ask anything about the codebase
+6. Explore **Details** for the dependency graph and impact analysis

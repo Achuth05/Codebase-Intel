@@ -1,0 +1,18 @@
+# Environment
+.env
+frontend/.env.local
+backend/.env
+
+# Python
+backend/venv/
+backend/__pycache__/
+backend/app/repos/
+backend/app/data/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+
+# Windows
+Thumbs.db
+desktop.ini
