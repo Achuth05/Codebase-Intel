@@ -1,10 +1,12 @@
-from groq import Groq
+
 from app.config import GROQ_API_KEY
 from app.graph.graph_queries import get_most_imported, get_all_classes
 
-client = Groq(api_key=GROQ_API_KEY)
+
 
 def summarize_architecture(repo_name: str, G, parsed_files: list[dict]) -> str:
+    from groq import Groq
+    client = Groq(api_key=GROQ_API_KEY)
     total_files = len(parsed_files)
     languages = {}
     for f in parsed_files:

@@ -1,13 +1,15 @@
 import os
-from groq import Groq
+
 from app.config import GROQ_API_KEY, get_user_repos_path
 from app.graph.graph_builder import load_graph
 from app.graph.graph_queries import get_file_summary
 from app.llm.architecture_summarizer import summarize_architecture
 
-client = Groq(api_key=GROQ_API_KEY)
+
 
 def generate_readme(repo_name: str, user_id: str) -> dict:
+    from groq import Groq
+    client = Groq(api_key=GROQ_API_KEY)
     G = load_graph(repo_name, user_id=user_id)
 
     file_nodes = [n for n, d in G.nodes(data=True) if d.get("type") == "file"]
@@ -38,6 +40,8 @@ def generate_readme(repo_name: str, user_id: str) -> dict:
 
 
 def generate_function_docs(repo_name: str, file_path: str, user_id: str) -> dict:
+    from groq import Groq
+    client = Groq(api_key=GROQ_API_KEY)
     G = load_graph(repo_name, user_id=user_id)
     summary = get_file_summary(G, file_path)
     docs = []
