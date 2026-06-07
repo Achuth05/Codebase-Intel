@@ -54,7 +54,7 @@ Codebase Intel ingests any public GitHub repository and builds an intelligent un
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/codebase-intel.git
+git clone https://github.com/Achuth05/Codebase-Intel.git
 cd codebase-intel
 ```
 ### 2. Set up Supabase
