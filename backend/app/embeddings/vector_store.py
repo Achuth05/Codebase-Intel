@@ -9,6 +9,9 @@ from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+def clean_text(text: str) -> str:
+    return text.replace("\x00", "").replace("\u0000", "")
+
 def _chunk_to_doc(chunk: dict) -> Document:
     return Document(
         page_content=chunk["content"],
@@ -40,12 +43,12 @@ def store_chunks(chunks, repo_name: str, user_id: str, persist_dir: str = None):
             all_rows.append({
                 "user_id": user_id,
                 "repo_name": repo_name,
-                "file_path": doc.metadata.get("file_path", ""),
-                "content": doc.page_content,
+                "file_path": clean_text(doc.metadata.get("file_path", "")),
+                "content": clean_text(doc.page_content),
                 "embedding": embedding,
-                "language": doc.metadata.get("language", ""),
-                "functions": doc.metadata.get("functions", ""),
-                "classes": doc.metadata.get("classes", ""),
+                "language": clean_text(doc.metadata.get("language", "")),
+                "functions": clean_text(doc.metadata.get("functions", "")),
+                "classes": clean_text(doc.metadata.get("classes", "")),
             })
 
         if len(all_rows) >= 100:
